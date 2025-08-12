@@ -2,97 +2,66 @@ import {
   Entity, 
   Column, 
   PrimaryGeneratedColumn, 
-  CreateDateColumn, 
-  UpdateDateColumn,
-  Index,
   ManyToOne,
   OneToMany,
   JoinColumn,
-  Unique
+  Check
 } from 'typeorm';
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { IsString, IsNumber, IsOptional, IsDateString, IsEnum, IsEmail, Min, Max } from 'class-validator';
 import { Instructor } from './instructores.entity';
 import { Institucion } from './instituciones.entity';
-import { Ubicacion } from './ubicacion.entity';
+import { Ubicacion } from './ubicaciones.entity';
 import { Alumno } from './alumnos.entity';
 
-
 @Entity('cursos')
+@Check(`tipo IN ('PRESENCIAL', 'VIRTUAL', 'HÍBRIDO')`)
+@Check(`modalidad IN ('MAÑANA', 'TARDE', 'NOCHE', 'FIN_DE_SEMANA')`)
+@Check(`duracion_horas > 0`)
+@Check(`f_fin >= f_inicio`)
 export class Curso {
-  @PrimaryGeneratedColumn()
+  @PrimaryGeneratedColumn({ name: 'id_curso' })
   idCurso: number;
 
-  @Column({ type: 'varchar', length: 200 })
+  @Column({ name: 'nombre_curso', type: 'varchar', length: 300 })
   nombreCurso: string;
 
   @Column({ type: 'text', nullable: true })
   descripcion: string;
 
-  @Column({ type: 'date' })
+  @Column({ name: 'f_inicio', type: 'date' })
   fInicio: Date;
 
-  @Column({ type: 'date' })
+  @Column({ name: 'f_fin', type: 'date' })
   fFin: Date;
 
-  @Column({ type: 'int' })
+  @Column({ name: 'id_instructor', type: 'integer' })
   idInstructor: number;
 
-  @Column({ 
-    type: 'varchar', 
-    length: 20,
-    enum: ['PRESENCIAL', 'VIRTUAL', 'HIBRIDO']
-  })
+  @Column({ type: 'varchar', length: 50 })
   tipo: string;
 
-  @Column({ type: 'int' })
+  @Column({ name: 'id_institucion', type: 'integer' })
   idInstitucion: number;
 
-  @Column({ type: 'int' })
+  @Column({ name: 'id_ubicacion', type: 'integer' })
   idUbicacion: number;
 
-  @Column({ type: 'int' })
+  @Column({ name: 'duracion_horas', type: 'integer' })
   duracionHoras: number;
 
-  @Column({ type: 'varchar', length: 50, nullable: true })
+  @Column({ type: 'varchar', length: 50 })
   modalidad: string;
-
-  @Column({ type: 'int', nullable: true })
-  capacidadMaxima: number;
-
-  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
-  precioCurso: number;
-
-  @Column({ 
-    type: 'varchar', 
-    length: 20, 
-    default: 'PLANIFICADO',
-    enum: ['PLANIFICADO', 'EN_PROGRESO', 'FINALIZADO', 'CANCELADO']
-  })
-  estadoCurso: string;
-
-  @Column({ type: 'text', nullable: true })
-  observaciones: string;
-
-  @CreateDateColumn()
-  createdAt: Date;
-
-  @UpdateDateColumn()
-  updatedAt: Date;
 
   // Relaciones
   @ManyToOne(() => Instructor, instructor => instructor.cursos)
-  @JoinColumn({ name: 'idInstructor' })
+  @JoinColumn({ name: 'id_instructor' })
   instructor: Instructor;
 
   @ManyToOne(() => Institucion, institucion => institucion.cursos)
-  @JoinColumn({ name: 'idInstitucion' })
+  @JoinColumn({ name: 'id_institucion' })
   institucion: Institucion;
 
   @ManyToOne(() => Ubicacion, ubicacion => ubicacion.cursos)
-  @JoinColumn({ name: 'idUbicacion' })
+  @JoinColumn({ name: 'id_ubicacion' })
   ubicacion: Ubicacion;
 
   @OneToMany(() => Alumno, alumno => alumno.curso)

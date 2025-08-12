@@ -2,77 +2,56 @@ import {
   Entity, 
   Column, 
   PrimaryGeneratedColumn, 
-  CreateDateColumn, 
-  UpdateDateColumn,
-  Index,
   ManyToOne,
   OneToMany,
   JoinColumn,
-  Unique
+  Check
 } from 'typeorm';
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { IsString, IsNumber, IsOptional, IsDateString, IsEnum, IsEmail, Min, Max } from 'class-validator';
 import { Curso } from './cursos.entity';
 import { Certificado } from './certificados.entity';
 
 @Entity('alumnos')
-@Unique(['idCurso', 'dni'])
+@Check(`dni ~ '^[0-9]{8}$'`)
+@Check(`nota >= 0 AND nota <= 20`)
+@Check(`porcentaje_asistencia >= 0 AND porcentaje_asistencia <= 100`)
+@Check(`estado IN ('INSCRITO','ASISTENTE','APROBADO', 'REPROBADO', 'RETIRADO')`)
 export class Alumno {
-  @PrimaryGeneratedColumn()
+  @PrimaryGeneratedColumn({ name: 'id_alumno' })
   idAlumno: number;
 
-  @Column({ type: 'int' })
+  @Column({ name: 'id_curso', type: 'integer' })
   idCurso: number;
 
-  @Column({ type: 'varchar', length: 200 })
-  nombreCompletos: string;
+  @Column({ name: 'nombre_completo', type: 'varchar', length: 300 })
+  nombreCompleto: string;
 
-  @Column({ type: 'varchar', length: 8 })
+  @Column({ type: 'varchar', length: 8, nullable: true })
   dni: string;
+
+  @Column({ type: 'varchar', length: 15, nullable: true })
+  telefono: string;
 
   @Column({ type: 'varchar', length: 100, nullable: true })
   email: string;
 
-  @Column({ type: 'varchar', length: 20, nullable: true })
-  telefono: string;
-
-  @Column({ type: 'varchar', length: 100, nullable: true })
-  cargoEmpresa: string;
-
-  @Column({ type: 'int', nullable: true })
-  anosExperiencia: number;
-
-  @Column({ type: 'timestamp with time zone', default: () => 'CURRENT_TIMESTAMP' })
+  @Column({ name: 'fecha_inscripcion', type: 'date' })
   fechaInscripcion: Date;
 
-  @Column({ 
-    type: 'varchar', 
-    length: 20, 
-    default: 'INSCRITO',
-    enum: ['INSCRITO', 'ASISTENTE', 'APROBADO', 'REPROBADO', 'RETIRADO']
-  })
-  estadoAlumno: string;
+  @Column({ type: 'varchar', length: 50, default: 'INSCRITO' })
+  estado: string;
 
-  @Column({ type: 'decimal', precision: 4, scale: 2, nullable: true })
-  notaFinal: number;
+  @Column({ type: 'numeric', nullable: true })
+  nota: number;
 
-  @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
+  @Column({ name: 'porcentaje_asistencia', type: 'numeric', nullable: true })
   porcentajeAsistencia: number;
 
   @Column({ type: 'text', nullable: true })
   observaciones: string;
 
-  @CreateDateColumn()
-  createdAt: Date;
-
-  @UpdateDateColumn()
-  updatedAt: Date;
-
   // Relaciones
   @ManyToOne(() => Curso, curso => curso.alumnos)
-  @JoinColumn({ name: 'idCurso' })
+  @JoinColumn({ name: 'id_curso' })
   curso: Curso;
 
   @OneToMany(() => Certificado, certificado => certificado.alumno)
