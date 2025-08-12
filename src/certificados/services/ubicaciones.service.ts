@@ -1,14 +1,8 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-
-// Entidad Ubicacion (simplificada para tus tablas)
-export class Ubicacion {
-  id_ubicaciones: number;
-  departamento: string;
-  provincia: string;
-  distrito: string;
-}
+import { Ubicacion } from '../entities/ubicaciones.entity';
+import { CrearUbicacionDto } from '../dto/crear-ubicacion.dto';
 
 @Injectable()
 export class UbicacionesService {
@@ -17,17 +11,13 @@ export class UbicacionesService {
     private ubicacionesRepository: Repository<Ubicacion>,
   ) {}
 
-  async crear(datos: {
-    departamento: string;
-    provincia: string;
-    distrito: string;
-  }): Promise<Ubicacion> {
+  async crear(datos: CrearUbicacionDto): Promise<Ubicacion> {
     // Verificar si ya existe
     const existente = await this.ubicacionesRepository.findOne({
       where: {
-        departamento: datos.departamento.toUpperCase(),
-        provincia: datos.provincia.toUpperCase(),
-        distrito: datos.distrito.toUpperCase()
+        departamento: datos.departamento,
+        provincia: datos.provincia,
+        distrito: datos.distrito
       }
     });
 
@@ -36,9 +26,9 @@ export class UbicacionesService {
     }
 
     const ubicacion = this.ubicacionesRepository.create({
-      departamento: datos.departamento.toUpperCase(),
-      provincia: datos.provincia.toUpperCase(),
-      distrito: datos.distrito.toUpperCase()
+      departamento: datos.departamento,
+      provincia: datos.provincia,
+      distrito: datos.distrito
     });
 
     return await this.ubicacionesRepository.save(ubicacion);
@@ -52,14 +42,14 @@ export class UbicacionesService {
 
   async obtenerPorDepartamento(departamento: string): Promise<Ubicacion[]> {
     return await this.ubicacionesRepository.find({
-      where: { departamento: departamento.toUpperCase() },
+      where: { departamento },
       order: { provincia: 'ASC', distrito: 'ASC' }
     });
   }
 
   async obtenerPorId(id: number): Promise<Ubicacion> {
     const ubicacion = await this.ubicacionesRepository.findOne({
-      where: { id_ubicaciones: id }
+      where: { idUbicaciones: id }
     });
 
     if (!ubicacion) {

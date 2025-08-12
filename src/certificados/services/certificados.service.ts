@@ -1,10 +1,10 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { Certificado } from '../entities/certificados.entity';
 import { Alumno } from '../entities/alumnos.entity';
 import { CrearCertificadoDto } from '../dto/crear-certificado.dto';
-import { FiltrosFiscaliaDto } from '../dto/filtros-fiscalizar.dto';
+import { FiltrosFiscalizarDto } from '../dto/filtros-fiscalizar.dto';
 
 @Injectable()
 export class CertificadosService {
@@ -13,6 +13,7 @@ export class CertificadosService {
     private certificadosRepository: Repository<Certificado>,
     @InjectRepository(Alumno)
     private alumnosRepository: Repository<Alumno>,
+    private dataSource: DataSource,
   ) {}
 
   async crear(datos: CrearCertificadoDto): Promise<Certificado> {
@@ -26,7 +27,7 @@ export class CertificadosService {
       throw new NotFoundException('Alumno no encontrado');
     }
 
-    if (alumno.estadoAlumno !== 'APROBADO') {
+    if (alumno.estado !== 'APROBADO') {
       throw new BadRequestException('Solo se pueden generar certificados para alumnos aprobados');
     }
 
@@ -42,42 +43,23 @@ export class CertificadosService {
       throw new BadRequestException('El alumno ya tiene un certificado activo');
     }
 
-    // Generar número de certificado único
-    const numeroCertificado = await this.generarNumeroCertificado();
-    const codigoVerificacion = this.generarCodigoVerificacion();
-
+    // Crear certificado - los triggers de la BD generarán número y código automáticamente
     const certificado = this.certificadosRepository.create({
-      numeroCertificado,
-      codigoVerificacion,
+      numeroCertificado: datos.numeroCertificado,
       idAlumno: datos.idAlumno,
-      fechaEmision: datos.fechaEmision ? new Date(datos.fechaEmision) : new Date(),
+      pdfPath: datos.pdfPath,
+      pdfHash: datos.pdfHash,
+      pdfSize: datos.pdfSize,
+      codigoVerificacion: datos.codigoVerificacion,
     });
 
     return await this.certificadosRepository.save(certificado);
   }
 
-  private async generarNumeroCertificado(): Promise<string> {
-    const año = new Date().getFullYear();
-    const ultimoCertificado = await this.certificadosRepository
-      .createQueryBuilder('certificado')
-      .where('EXTRACT(YEAR FROM certificado.fechaEmision) = :año', { año })
-      .orderBy('certificado.createdAt', 'DESC')
-      .getOne();
+  // Ya no necesitamos estos métodos, los triggers de la BD se encargan
+  // de generar números y códigos automáticamente
 
-    let numero = 1;
-    if (ultimoCertificado) {
-      const partes = ultimoCertificado.numeroCertificado.split('-');
-      numero = parseInt(partes[1]) + 1;
-    }
-
-    return `${año}-${numero.toString().padStart(6, '0')}`;
-  }
-
-  private generarCodigoVerificacion(): string {
-    return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-  }
-
-  async obtenerPorRangoFechas(filtros: FiltrosFiscaliaDto): Promise<any[]> {
+  async obtenerPorRangoFechas(filtros: FiltrosFiscalizarDto): Promise<any[]> {
     const query = `
       SELECT * FROM obtener_certificados_por_fechas($1, $2, $3, $4, $5)
     `;
@@ -102,7 +84,7 @@ export class CertificadosService {
     ]);
   }
 
-  async generarReporteFiscalia(filtros: FiltrosFiscaliaDto): Promise<any[]> {
+  async generarReporteFiscalia(filtros: FiltrosFiscalizarDto): Promise<any[]> {
     const query = `
       SELECT * FROM reporte_fiscalia_completo($1, $2, $3)
     `;
@@ -152,13 +134,30 @@ export class CertificadosService {
     return await this.certificadosRepository.save(certificado);
   }
 
-  async verificarCertificadoPublico(codigo: string): Promise<any> {
-    const query = `
-      SELECT * FROM verificar_certificado_publico($1)
-    `;
+  async verificarCertificadoPorCodigo(codigo: string): Promise<any> {
+    const certificado = await this.certificadosRepository.findOne({
+      where: { codigoVerificacion: codigo },
+      relations: ['alumno', 'alumno.curso', 'alumno.curso.instructor', 'alumno.curso.institucion']
+    });
 
-    const resultado = await this.certificadosRepository.query(query, [codigo]);
-    return resultado[0] || null;
+    if (!certificado) {
+      throw new NotFoundException('Certificado no encontrado');
+    }
+
+    return certificado;
+  }
+
+  async buscarPorNumero(numero: string): Promise<Certificado> {
+    const certificado = await this.certificadosRepository.findOne({
+      where: { numeroCertificado: numero },
+      relations: ['alumno']
+    });
+
+    if (!certificado) {
+      throw new NotFoundException('Certificado no encontrado');
+    }
+
+    return certificado;
   }
 
   async actualizarArchivoPdf(
